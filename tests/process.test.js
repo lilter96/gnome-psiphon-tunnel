@@ -3,7 +3,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Psiphon, busyPorts, findPsiphon, procStat, sleep, stillRunning} from '../psiphon-tunnel@terentiy/psiphon.js';
+import {Psiphon, busyPorts, findPsiphon, procStat, sleep, stillRunning, writeRegion} from '../psiphon-tunnel@terentiy/psiphon.js';
 import {cleanup, home, read, until, userSystemd} from './fake.js';
 import {assert, equal, test} from './harness.js';
 
@@ -152,5 +152,27 @@ test('never mistakes a different Psiphon for ours', async () => {
     } finally {
         cleanup(pa);
         cleanup(pb);
+    }
+});
+
+test('a country goes into client.conf with its permissions, and Psiphon takes it on the next start', async () => {
+    const {paths, http, socks} = await home();
+    const layout = `{\n"LocalHttpProxyPort": ${http},\n"LocalSocksProxyPort": ${socks},\n"EgressRegion": ""\n}\n`;
+    GLib.file_set_contents(paths.conf, layout);
+    GLib.chmod(paths.conf, 0o600);
+    const p = new Psiphon(paths, () => {});
+    try {
+        assert(writeRegion(paths.conf, 'SE'), 'changed');
+        equal(read(paths.conf), layout.replace('"EgressRegion": ""', '"EgressRegion": "SE"'));
+        const mode = Gio.File.new_for_path(paths.conf).query_info('unix::mode', Gio.FileQueryInfoFlags.NONE, null)
+            .get_attribute_uint32('unix::mode') & 0o777;
+        equal(mode, 0o600, 'permissions kept');
+        assert(!writeRegion(paths.conf, 'SE'), 'the same country is not a change');
+        await p.start();
+        assert(await until(() => p.poll() || p.state === 'on'), `state ${p.state}`);
+        equal(p.log.region, 'SE');
+        equal(p.log.regions.join(), 'DE,NL,NO,SE,US');
+    } finally {
+        cleanup(p);
     }
 });

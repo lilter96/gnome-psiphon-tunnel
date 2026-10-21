@@ -1,12 +1,14 @@
 {
   "uuid": "psiphon-tunnel@terentiy",
   "name": "Psiphon Tunnel",
-  "description": "Psiphon в верхней панели: крот-шахтёр показывает, открыт ли туннель, через какую страну, с каким откликом и кто через него ходит. Включает Psiphon как psi-on и выключает аккуратно: если туннелем кто-то пользуется, предложит подождать, пока они закроются.",
+  "description": "Psiphon in the top bar. A miner mole shows whether the tunnel is open, through which country, how fast, and who goes through it. Pick the country, point the system proxy at the tunnel, and close it carefully: if programs still use it, it offers to wait until they close.\n\nNeeds Psiphon's console client in ~/psiphon; install.sh from the repository sets it up.",
   "shell-version": [
     "46"
   ],
   "session-modes": [
     "user"
   ],
-  "version": 1
+  "settings-schema": "org.gnome.shell.extensions.psiphon-tunnel",
+  "url": "https://github.com/lilter96/gnome-psiphon-tunnel",
+  "version": 2
 }

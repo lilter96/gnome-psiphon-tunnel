@@ -12,7 +12,7 @@ Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
 const script = GLib.build_filenamev([GLib.path_get_dirname(GLib.filename_from_uri(import.meta.url)[0]), '..', 'bin', 'psi']);
 
 // psi-on and psi-off as they are installed: links to bin/psi with those names.
-async function psi(paths, name, env = {}) {
+async function psi(paths, name, env = {}, args = []) {
     const link = GLib.build_filenamev([paths.cwd, name]);
     if (!GLib.file_test(link, GLib.FileTest.IS_SYMLINK))
         Gio.File.new_for_path(link).make_symbolic_link(GLib.canonicalize_filename(script, null), null);
@@ -21,7 +21,7 @@ async function psi(paths, name, env = {}) {
     l.setenv('PSI_DIR', GLib.path_get_dirname(paths.bin), true);
     for (const [k, v] of Object.entries(env))
         l.setenv(k, v, true);
-    const p = l.spawnv([link]);
+    const p = l.spawnv([link, ...args]);
     const [out, err] = await p.communicate_utf8_async(null, null);
     return {status: p.get_exit_status(), out: out.trim(), err: err.trim()};
 }
@@ -145,4 +145,49 @@ test('psi-off stops a Psiphon the extension started', async () => {
     } finally {
         cleanup(p);
     }
+});
+
+test('psi region sets the country, and a running Psiphon is restarted to take it', async () => {
+    const {paths, http, socks} = await home();
+    const layout = `{\n"LocalHttpProxyPort": ${http},\n"LocalSocksProxyPort": ${socks},\n"EgressRegion": "US"\n}\n`;
+    GLib.file_set_contents(paths.conf, layout);
+    try {
+        const first = pidOf((await psi(paths, 'psi-on')).out);
+        await until(() => /"ConnectedServerRegion"/.test(read(paths.log) ?? ''));
+        const before = await psi(paths, 'psi', {}, ['region']);
+        assert(/^country +US$/m.test(before.out), before.out);
+        assert(/^offered +DE NL NO SE US$/m.test(before.out), before.out);
+
+        const r = await psi(paths, 'psi', {}, ['region', 'de']);
+        equal(r.status, 0, r.err);
+        equal(read(paths.conf), layout.replace('"US"', '"DE"'));
+        assert(/Psiphon stopped in \d+ ms/.test(r.out) && /Psiphon started \(pid \d+\)/.test(r.out), r.out);
+        const second = pidOf(r.out.split('\n').pop());
+        assert(second && second !== first, `restarted: ${first} -> ${second}`);
+        assert(await until(() => /"serverRegion":"DE"/.test(read(paths.log) ?? '')), 'connected through DE');
+
+        const status = await psi(paths, 'psi');
+        assert(/^tunnel +open through DE$/m.test(status.out), status.out);
+        assert(new RegExp(`HTTP 127.0.0.1:${http}`).test(status.out), status.out);
+
+        const auto = await psi(paths, 'psi', {}, ['region', 'auto']);
+        assert(/^country +fastest/m.test(auto.out), auto.out);
+        equal(JSON.parse(read(paths.conf)).EgressRegion, '');
+    } finally {
+        stop(paths);
+    }
+});
+
+test('psi region refuses nonsense and leaves the file alone', async () => {
+    const {paths} = await home();
+    const before = read(paths.conf);
+    const r = await psi(paths, 'psi', {}, ['region', 'Germany']);
+    equal(r.status, 2);
+    assert(/not a country code/.test(r.err), r.err);
+    equal(read(paths.conf), before);
+    // a config without the key gets it
+    const set = await psi(paths, 'psi', {}, ['region', 'NL']);
+    equal(set.status, 0, set.err);
+    equal(JSON.parse(read(paths.conf)).EgressRegion, 'NL');
+    equal(Object.keys(JSON.parse(read(paths.conf))).length, 3, 'the rest is kept');
 });

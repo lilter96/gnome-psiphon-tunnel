@@ -86,7 +86,7 @@
   box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.7);
 }
 
-/* "Через туннель работают ..." — an action sheet. */
+/* "X is using the tunnel ..." — an action sheet. */
 
 .pt-sheet {
   margin: 14px 4px 0;
@@ -268,6 +268,173 @@
   font-size: 12px;
   color: rgba(235, 235, 245, 0.42);
   padding: 2px 0 4px;
+}
+
+/* Country and system proxy: one rounded box of two rows. */
+
+.pt-group {
+  margin: 12px 4px 0;
+  border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.065);
+}
+
+.pt-group-row {
+  padding: 9px 12px;
+  border-radius: 0;
+  transition-duration: 120ms;
+}
+
+.pt-group-row:first-child {
+  border-radius: 16px 16px 0 0;
+}
+
+.pt-group-row:last-child {
+  border-radius: 0 0 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pt-group-row:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.pt-group-row:focus {
+  box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.7);
+}
+
+.pt-group-row.pt-dim {
+  color: rgba(235, 235, 245, 0.45);
+}
+
+.pt-group-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.pt-group-row.pt-dim .pt-group-label,
+.pt-group-row.pt-dim .pt-group-value {
+  color: rgba(235, 235, 245, 0.4);
+}
+
+.pt-group-value {
+  font-size: 13px;
+  color: rgba(235, 235, 245, 0.62);
+  max-width: 170px;
+}
+
+.pt-group-chevron {
+  font-size: 17px;
+  color: rgba(235, 235, 245, 0.35);
+  margin-left: 8px;
+}
+
+.pt-group-sub {
+  font-size: 11px;
+  color: rgba(235, 235, 245, 0.45);
+  margin-top: 1px;
+}
+
+/* An iOS-style switch: a pill and a knob that sits left or right. */
+
+.pt-switch {
+  width: 38px;
+  height: 22px;
+  padding: 2px;
+  border-radius: 13px;
+  background-color: rgba(255, 255, 255, 0.16);
+  transition-duration: 160ms;
+}
+
+.pt-switch.pt-on {
+  background-color: #30d158;
+}
+
+.pt-switch-knob {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* The countries. */
+
+.pt-picker {
+  margin: 12px 4px 0;
+  spacing: 8px;
+}
+
+.pt-picker-head {
+  padding: 0 4px;
+}
+
+.pt-picker-back {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4da3ff;
+  padding: 4px 8px 4px 2px;
+  border-radius: 8px;
+}
+
+.pt-picker-back:hover {
+  color: #7dbcff;
+}
+
+.pt-picker-back:focus {
+  box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.7);
+}
+
+.pt-chips {
+  spacing: 6px;
+}
+
+.pt-chips-row {
+  spacing: 6px;
+}
+
+.pt-chip {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.065);
+  transition-duration: 120ms;
+}
+
+.pt-chip:hover {
+  background-color: rgba(255, 255, 255, 0.11);
+}
+
+.pt-chip:focus {
+  box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.7);
+}
+
+.pt-chip.pt-chip-on {
+  background-color: rgba(10, 132, 255, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(77, 163, 255, 0.75);
+}
+
+.pt-chip-box {
+  spacing: 8px;
+}
+
+.pt-chip-flag {
+  font-size: 15px;
+}
+
+.pt-chip-name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.pt-chip-on .pt-chip-name {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.pt-picker-note {
+  font-size: 11px;
+  color: rgba(235, 235, 245, 0.45);
+  padding: 0 6px;
 }
 
 .pt-footer {

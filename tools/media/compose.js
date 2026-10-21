@@ -10,7 +10,7 @@ import System from 'system';
 
 const [src, dst] = ARGV.map(p => GLib.canonicalize_filename(p, null));
 // The mole is random, so every capture differs: pick the nicest moment by eye.
-const PICK = {on: 3, sheet: 2, waiting: 2};
+const PICK = {on: 3, sheet: 2, waiting: 2, picker: 2};
 const R_CARD = 52;      // .pt-menu radius at 2x
 const R_PANEL = 20;
 const decoder = new TextDecoder();
@@ -76,21 +76,29 @@ function canvas(w, h, draw, path) {
 
 GLib.mkdir_with_parents(dst, 0o755);
 
-// Open, asking before a stop, waiting for the programs to close: side by side, top-aligned.
-{
+// Popups side by side, top-aligned.
+function cardRow(names, path) {
     const s = 0.75, pad = 44, gap = 40;
-    const names = ['on', 'sheet', 'waiting'].map(k => `card_${k}_${PICK[k]}`);
     names.forEach(assertPlain);
     const cards = names.map(load);
     const w = cards[0].getWidth();
     const h = Math.max(...cards.map(c => c.getHeight()));
-    canvas(2 * pad + 3 * w * s + 2 * gap, 2 * pad + h * s, cr => {
+    canvas(2 * pad + cards.length * w * s + (cards.length - 1) * gap, 2 * pad + h * s, cr => {
         cards.forEach((c, i) => {
             const x = pad + i * (w * s + gap);
             shadow(cr, x, pad, w * s, c.getHeight() * s, R_CARD * s, 26, 0.55);
             paste(cr, c, x, pad, w, c.getHeight(), R_CARD, s);
         });
-    }, `${dst}/cards.png`);
+    }, path);
+}
+
+// Open, asking before a stop, waiting for the programs to close.
+cardRow(['on', 'sheet', 'waiting'].map(k => `card_${k}_${PICK[k]}`), `${dst}/cards.png`);
+
+// Picking a country, and the popup in the other language.
+{
+    const other = Object.keys(meta).find(k => /^card_on_[a-z]{2}$/.test(k));
+    cardRow([`card_picker_${PICK.picker}`, `${other}_${PICK.on}`], `${dst}/settings.png`);
 }
 
 // The panel helmet in each state.

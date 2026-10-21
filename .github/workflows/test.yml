@@ -9,11 +9,19 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - name: Install gjs
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gjs gir1.2-glib-2.0 gir1.2-soup-3.0 gir1.2-pango-1.0 gcc libc6-dev
-      - name: Check metadata
-        run: python3 -c "import json; m = json.load(open('psiphon-tunnel@terentiy/metadata.json')); assert m['uuid'] == 'psiphon-tunnel@terentiy' and m['session-modes'] == ['user']"
-      - name: Unit tests and a fake Psiphon
+      - name: Install gjs, dconf and the GNOME schemas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gjs gir1.2-glib-2.0 gir1.2-soup-3.0 gir1.2-pango-1.0 \
+            gcc libc6-dev libglib2.0-bin dbus-daemon dconf-service dconf-gsettings-backend \
+            gsettings-desktop-schemas gnome-shell-common shellcheck
+      - name: Check metadata and settings schema
+        run: |
+          python3 -c "import json; m = json.load(open('psiphon-tunnel@terentiy/metadata.json')); assert m['uuid'] == 'psiphon-tunnel@terentiy' and m['session-modes'] == ['user'] and m['settings-schema'] == 'org.gnome.shell.extensions.psiphon-tunnel'"
+          glib-compile-schemas --strict --dry-run psiphon-tunnel@terentiy/schemas
+      - name: Shell scripts
+        run: shellcheck install.sh bin/psi tools/media/capture.sh
+      - name: Unit tests, a fake Psiphon, psi and install.sh
         run: gjs -m tests/run.js
       - name: The mole renders
         run: gjs -m tools/frames.js /tmp/frames.png 1 && gjs -m tools/glyph.js /tmp/glyph.png

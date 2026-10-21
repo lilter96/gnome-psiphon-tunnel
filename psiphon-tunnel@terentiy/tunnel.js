@@ -138,26 +138,56 @@ export function failureOf(log) {
 
 // --- regions ------------------------------------------------------------------
 
-const REGIONS = {
-    AE: 'ОАЭ', AM: 'Армения', AT: 'Австрия', AU: 'Австралия', BE: 'Бельгия', BG: 'Болгария',
-    BR: 'Бразилия', CA: 'Канада', CH: 'Швейцария', CY: 'Кипр', CZ: 'Чехия', DE: 'Германия',
-    DK: 'Дания', EE: 'Эстония', ES: 'Испания', FI: 'Финляндия', FR: 'Франция',
-    GB: 'Великобритания', GE: 'Грузия', GR: 'Греция', HK: 'Гонконг', HR: 'Хорватия',
-    HU: 'Венгрия', ID: 'Индонезия', IE: 'Ирландия', IL: 'Израиль', IN: 'Индия', IS: 'Исландия',
-    IT: 'Италия', JP: 'Япония', KR: 'Южная Корея', KZ: 'Казахстан', LT: 'Литва',
-    LU: 'Люксембург', LV: 'Латвия', MD: 'Молдова', MX: 'Мексика', MY: 'Малайзия',
-    NL: 'Нидерланды', NO: 'Норвегия', NZ: 'Новая Зеландия', PL: 'Польша', PT: 'Португалия',
-    RO: 'Румыния', RS: 'Сербия', SE: 'Швеция', SG: 'Сингапур', SI: 'Словения',
-    SK: 'Словакия', TR: 'Турция', TW: 'Тайвань', UA: 'Украина', US: 'США', ZA: 'ЮАР',
-};
+// What Psiphon offered on 2026-10-21, for before it has said so itself: it
+// lists its regions in an AvailableEgressRegions notice on every run.
+export const DEFAULT_REGIONS = ['AT', 'AU', 'BE', 'CA', 'CH', 'CZ', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB',
+    'ID', 'IE', 'IN', 'IT', 'JP', 'KR', 'LT', 'NL', 'NO', 'PL', 'RO', 'RS', 'SE', 'SG', 'US'];
 
-export const regionName = code => REGIONS[code] ?? code ?? '';
+export const isRegion = code => /^[A-Z]{2}$/.test(code ?? '');
 
 // Two regional indicator letters make a flag emoji.
 export function flagEmoji(code) {
-    if (!/^[A-Z]{2}$/.test(code ?? ''))
+    if (!isRegion(code))
         return '';
     return String.fromCodePoint(...[...code].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
+// client.conf with EgressRegion set to code ('' lets Psiphon pick the fastest
+// server), everything else as it was: the one value is replaced in place, so
+// the file keeps its layout. -> the new text. Throws if the text is not a
+// JSON object.
+export function setEgressRegion(text, code) {
+    if (code !== '' && !isRegion(code))
+        throw new Error(`not a region: ${code}`);
+    const conf = JSON.parse(text);
+    if (!conf || typeof conf !== 'object' || Array.isArray(conf))
+        throw new Error('not a JSON object');
+    const want = {...conf, EgressRegion: code};
+    // the same settings, whatever the order of the keys
+    const canon = o => JSON.stringify(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+    const same = t => {
+        try {
+            return canon(JSON.parse(t)) === canon(want);
+        } catch {
+            return false;
+        }
+    };
+    const value = /("EgressRegion"\s*:\s*)"(?:[^"\\]|\\.)*"/;
+    let out;
+    if (value.test(text)) {
+        out = text.replace(value, (_m, key) => `${key}"${code}"`);
+    } else if (!Object.keys(conf).length) {
+        out = `{"EgressRegion": "${code}"}\n`;
+    } else {
+        const indent = /^\s*\{\s*?\n([ \t]*)"/.exec(text)?.[1];
+        out = indent !== undefined
+            ? text.replace('{', `{\n${indent}"EgressRegion": "${code}",`)
+            : text.replace('{', `{"EgressRegion": "${code}", `);
+    }
+    // the name inside a nested object, a layout the edit got wrong: write it out whole
+    if (!same(out))
+        out = `${JSON.stringify(want, null, 4)}\n`;
+    return out;
 }
 
 // --- who uses the tunnel ------------------------------------------------------
@@ -295,13 +325,6 @@ export function roots(pids, procs) {
     return [...out];
 }
 
-// "Claude Code", "Claude Code и Codex", "Claude Code, Codex и Firefox"
-export function joinNames(names) {
-    if (names.length <= 1)
-        return names[0] ?? '';
-    return `${names.slice(0, -1).join(', ')} и ${names[names.length - 1]}`;
-}
-
 // --- listening ports ------------------------------------------------------------
 
 // Ports in LISTEN that keep Psiphon from binding 127.0.0.1, from
@@ -347,31 +370,7 @@ export async function stopProcess(ops, {grace = 5000, poll = 50, killWait = 2000
     return {how: 'stuck', ms: ops.now() - t0};
 }
 
-// --- words ------------------------------------------------------------------------
-
-export function plural(n, one, few, many) {
-    const m10 = n % 10, m100 = n % 100;
-    if (m10 === 1 && m100 !== 11)
-        return one;
-    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14))
-        return few;
-    return many;
-}
-
-// "3 ч 12 мин", "45 мин", "40 с", "2 д 3 ч"
-export function formatDuration(seconds) {
-    const s = Math.max(0, Math.round(seconds));
-    if (s < 60)
-        return `${s} с`;
-    const m = Math.floor(s / 60);
-    if (m < 60)
-        return `${m} мин`;
-    const h = Math.floor(m / 60), r = m % 60;
-    if (h < 24)
-        return r ? `${h} ч ${r} мин` : `${h} ч`;
-    const d = Math.floor(h / 24), rh = h % 24;
-    return rh ? `${d} д ${rh} ч` : `${d} д`;
-}
+// --- clock ------------------------------------------------------------------------
 
 // "0:07", "12:40", "1:02:03"
 export function formatClock(seconds) {
@@ -379,23 +378,4 @@ export function formatClock(seconds) {
     const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, r = s % 60;
     const two = v => String(v).padStart(2, '0');
     return h ? `${h}:${two(m)}:${two(r)}` : `${m}:${two(r)}`;
-}
-
-// "12 КБ/с", "1,4 МБ/с"
-export function formatRate(bytes) {
-    const units = ['Б/с', 'КБ/с', 'МБ/с', 'ГБ/с'];
-    let v = Math.max(0, bytes), i = 0;
-    while (v >= 1000 && i < units.length - 1) {
-        v /= 1024;
-        i++;
-    }
-    const n = v < 10 && i > 0 ? v.toFixed(1).replace('.', ',') : String(Math.round(v));
-    return `${n} ${units[i]}`;
-}
-
-// "только что", "5 мин назад"
-export function ago(seconds) {
-    if (seconds < 60)
-        return 'только что';
-    return `${formatDuration(seconds)} назад`;
 }

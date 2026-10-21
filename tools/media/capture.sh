@@ -10,8 +10,10 @@
 #
 #   tools/media/capture.sh smoke      # a real Psiphon copy, real network
 #   tools/media/capture.sh media      # the fake Psiphon from tests/ → docs/media
+#   PT_MEDIA_LANG=ru tools/media/capture.sh smoke     # the popup in Russian
 set -euo pipefail
 mode=${1:-smoke}
+lang=${PT_MEDIA_LANG:-en}
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../.." && pwd)
 out=$here/out/$mode
@@ -35,6 +37,8 @@ done
 mkdir -p "$tmp"/{config,state,cache} "$tmp/data/gnome-shell/extensions" "$tmp/home/psiphon"
 mkdir -m 700 "$tmp/runtime"
 ln -s "$repo/psiphon-tunnel@terentiy" "$here/pt-media@local" "$tmp/data/gnome-shell/extensions/"
+schemas=$repo/psiphon-tunnel@terentiy/schemas
+glib-compile-schemas --strict "$schemas"
 
 psi=$tmp/home/psiphon
 if [ "$mode" = smoke ]; then
@@ -59,13 +63,16 @@ desktop_icons() { pgrep -f 'ding@rastersoft.com/app/[d]ing.js' || true; }
 icons_before=$(desktop_icons)
 
 export HOME=$tmp/home XDG_CONFIG_HOME=$tmp/config XDG_DATA_HOME=$tmp/data XDG_STATE_HOME=$tmp/state \
-    XDG_CACHE_HOME=$tmp/cache XDG_RUNTIME_DIR=$tmp/runtime PT_MEDIA_OUT=$out PT_MEDIA_MODE=$mode
+    XDG_CACHE_HOME=$tmp/cache XDG_RUNTIME_DIR=$tmp/runtime PT_MEDIA_OUT=$out PT_MEDIA_MODE=$mode \
+    PT_MEDIA_LANG=$lang PT_SCHEMAS=$schemas
 unset DISPLAY WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_SESSION_ID GNOME_SHELL_SESSION_MODE
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy NO_PROXY no_proxy
+# shellcheck disable=SC2016 # expanded by the inner shell
 timeout 600 dbus-run-session -- bash -c '
     gsettings set org.gnome.shell enabled-extensions "[\"psiphon-tunnel@terentiy\", \"pt-media@local\"]"
     gsettings set org.gnome.desktop.interface color-scheme prefer-dark
     gsettings set org.gnome.desktop.interface scaling-factor 2
+    gsettings --schemadir "$PT_SCHEMAS" set org.gnome.shell.extensions.psiphon-tunnel language "$PT_MEDIA_LANG"
     [ -f "$XDG_CONFIG_HOME/dconf/user" ] || { echo "dconf is not isolated, stopping"; exit 3; }
     exec nice -n 10 gnome-shell --mode=user --headless --no-x11 --virtual-monitor 2560x2200
 ' >"$out/shell.log" 2>&1 || true
