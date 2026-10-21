@@ -4,6 +4,8 @@
 //   PT_MEDIA_MODE=smoke  a real Psiphon copy on test ports: start, the system
 //                        proxy, a new country, users, the sheet, a stop that
 //                        waits, a crash, a disable, a busy port
+//   PT_MEDIA_MODE=check  the smoke test against the fake Psiphon, no network:
+//                        for other GNOME versions, see tools/versions/check.sh
 //   PT_MEDIA_MODE=media  the fake Psiphon and made-up users, for the README
 //   PT_MEDIA_LANG=en|ru  the language the popup is set to (capture.sh sets it)
 import GLib from 'gi://GLib';
@@ -11,6 +13,7 @@ import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Config from 'resource:///org/gnome/shell/misc/config.js';
 import {LANGUAGES} from '../psiphon-tunnel@terentiy/lang.js';
 import {findPsiphon, stillRunning} from '../psiphon-tunnel@terentiy/psiphon.js';
 import {DEFAULT_REGIONS} from '../psiphon-tunnel@terentiy/tunnel.js';
@@ -18,6 +21,7 @@ import {DEFAULT_REGIONS} from '../psiphon-tunnel@terentiy/tunnel.js';
 Gio._promisify(Shell.Screenshot.prototype, 'screenshot_area');
 const OUT = GLib.getenv('PT_MEDIA_OUT');
 const MODE = GLib.getenv('PT_MEDIA_MODE') ?? 'smoke';
+const FAKE = MODE === 'check';     // a fake Psiphon: no latency, no traffic
 const L = LANGUAGES[GLib.getenv('PT_MEDIA_LANG') ?? 'en'];
 const UUID = 'psiphon-tunnel@terentiy';
 const sleep = ms => new Promise(r => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
@@ -101,9 +105,10 @@ export default class Media extends Extension {
         await sleep(1000);
         hideBehind();
         const ext = Main.extensionManager.lookup(UUID);
-        log(`state=${ext.state} error=${ext.error ?? ''}`);
+        log(`GNOME Shell ${Config.PACKAGE_VERSION}, state=${ext.state} error=${ext.error ?? ''}`);
+        check('the extension is enabled', !!ext.stateObj && !ext.error, ext.error ?? '');
         try {
-            if (MODE === 'smoke')
+            if (MODE === 'smoke' || MODE === 'check')
                 await this._smoke(ext);
             else
                 await this._media(ext);
@@ -216,16 +221,18 @@ export default class Media extends Extension {
         let peak = 0;
         await until(() => {
             peak = Math.max(peak, me._users.rates?.down ?? 0);
-            return peak > 10000 && me._latency && me._users.list().some(u => u.env);
+            return (FAKE || (peak > 10000 && me._latency)) && me._users.list().some(u => u.env);
         }, 20000);
         await sleep(1200);
         const m = me._model(Date.now() / 1000);
         log(`latency=${JSON.stringify(m.latency)} rates=${JSON.stringify(m.rates && {down: m.rates.down, up: m.rates.up})}`);
         log(`users=${JSON.stringify(m.users.map(u => ({name: u.name, env: u.env, live: u.live, down: Math.round(u.down)})))}`);
-        check('latency measured', m.latency && !m.latency.error, JSON.stringify(m.latency));
+        if (!FAKE)
+            check('latency measured', m.latency && !m.latency.error, JSON.stringify(m.latency));
         check('sees Claude Code by env', m.users.some(u => u.name === 'Claude Code' && u.env));
         check('sees curl by its socket', m.users.some(u => u.name === 'curl' && u.live));
-        check('traffic counted', peak > 10000, `peak ${Math.round(peak)} B/s`);
+        if (!FAKE)
+            check('traffic counted', peak > 10000, `peak ${Math.round(peak)} B/s`);
         await shot('card_on', box());
 
         // Turn off: two programs lean on it, so ask first

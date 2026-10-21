@@ -9,6 +9,7 @@
 # user, including your session's.
 #
 #   tools/media/capture.sh smoke      # a real Psiphon copy, real network
+#   tools/media/capture.sh check      # the same against the fake Psiphon, no network
 #   tools/media/capture.sh media      # the fake Psiphon from tests/ → docs/media
 #   PT_MEDIA_LANG=ru tools/media/capture.sh smoke     # the popup in Russian
 set -euo pipefail
@@ -31,6 +32,7 @@ reap() {
 }
 trap 'reap; rm -rf "$tmp"' EXIT
 
+case $mode in smoke | check | media) ;; *) echo "usage: capture.sh smoke|check|media"; exit 2 ;; esac
 for port in 18081 11081; do
     if ss -Hltn "sport = :$port" | grep -q .; then echo "port $port is busy, stopping"; exit 2; fi
 done
@@ -73,8 +75,12 @@ timeout 600 dbus-run-session -- bash -c '
     gsettings set org.gnome.desktop.interface color-scheme prefer-dark
     gsettings set org.gnome.desktop.interface scaling-factor 2
     gsettings --schemadir "$PT_SCHEMAS" set org.gnome.shell.extensions.psiphon-tunnel language "$PT_MEDIA_LANG"
+    # another GNOME than the one in metadata.json: load it all the same
+    [ "$PT_MEDIA_MODE" = check ] && gsettings set org.gnome.shell disable-extension-version-validation true
     [ -f "$XDG_CONFIG_HOME/dconf/user" ] || { echo "dconf is not isolated, stopping"; exit 3; }
-    exec nice -n 10 gnome-shell --mode=user --headless --no-x11 --virtual-monitor 2560x2200
+    # no Xwayland, where the flag still exists
+    x11=$(gnome-shell --help 2>&1 | grep -q -- --no-x11 && echo --no-x11)
+    exec nice -n 10 gnome-shell --mode=user --headless $x11 --virtual-monitor 2560x2200
 ' >"$out/shell.log" 2>&1 || true
 reap
 grep -E '\[pt-media\]|psiphon-tunnel|JS ERROR|JS WARNING|stopping' "$out/shell.log" || true

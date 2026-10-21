@@ -20,7 +20,7 @@ jobs:
           python3 -c "import json; m = json.load(open('psiphon-tunnel@terentiy/metadata.json')); assert m['uuid'] == 'psiphon-tunnel@terentiy' and m['session-modes'] == ['user'] and m['settings-schema'] == 'org.gnome.shell.extensions.psiphon-tunnel'"
           glib-compile-schemas --strict --dry-run psiphon-tunnel@terentiy/schemas
       - name: Shell scripts
-        run: shellcheck install.sh bin/psi tools/media/capture.sh
+        run: shellcheck install.sh bin/psi tools/media/capture.sh tools/versions/check.sh
       - name: Unit tests, a fake Psiphon, psi and install.sh
         run: gjs -m tests/run.js
       - name: The mole renders
