@@ -1,0 +1,19 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gjs:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install gjs
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gjs gir1.2-glib-2.0 gir1.2-soup-3.0 gir1.2-pango-1.0 gcc libc6-dev
+      - name: Check metadata
+        run: python3 -c "import json; m = json.load(open('psiphon-tunnel@terentiy/metadata.json')); assert m['uuid'] == 'psiphon-tunnel@terentiy' and m['session-modes'] == ['user']"
+      - name: Unit tests and a fake Psiphon
+        run: gjs -m tests/run.js
+      - name: The mole renders
+        run: gjs -m tools/frames.js /tmp/frames.png 1 && gjs -m tools/glyph.js /tmp/glyph.png

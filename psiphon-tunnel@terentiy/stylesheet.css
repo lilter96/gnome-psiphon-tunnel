@@ -1,0 +1,278 @@
+/* Popup: a graphite card, Apple-like, independent of the shell theme. */
+
+.popup-menu.pt-menu .popup-menu-content {
+  background-color: rgba(29, 30, 37, 0.985);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 26px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  padding: 12px 10px 10px;
+}
+
+.pt-card {
+  width: 324px;
+  font-family: "Inter", "Ubuntu Sans", sans-serif;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.pt-title {
+  font-family: "Inter Display", "Inter", sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+  margin-top: 2px;
+}
+
+.pt-subtitle {
+  font-size: 12px;
+  font-feature-settings: "tnum";
+  color: rgba(235, 235, 245, 0.6);
+  margin: 3px 12px 0;
+}
+
+.pt-subtitle.pt-good {
+  color: #4ade80;
+}
+
+.pt-subtitle.pt-busy {
+  color: #ffb340;
+}
+
+.pt-subtitle.pt-bad {
+  color: #ff6961;
+}
+
+/* The one big button. */
+
+.pt-main {
+  margin: 14px 4px 0;
+  padding: 10px 0;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition-duration: 160ms;
+}
+
+.pt-main.pt-primary {
+  background-color: #0a84ff;
+}
+
+.pt-main.pt-primary:hover {
+  background-color: #2b95ff;
+}
+
+.pt-main.pt-primary:active {
+  background-color: #0071e3;
+}
+
+.pt-main.pt-secondary {
+  color: #ff6961;
+  background-color: rgba(255, 255, 255, 0.085);
+}
+
+.pt-main.pt-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.13);
+}
+
+.pt-main:insensitive {
+  color: rgba(235, 235, 245, 0.45);
+}
+
+.pt-main:focus,
+.pt-sheet-btn:focus,
+.pt-wait-btn:focus {
+  box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.7);
+}
+
+/* "Через туннель работают ..." — an action sheet. */
+
+.pt-sheet {
+  margin: 14px 4px 0;
+  border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.075);
+}
+
+.pt-sheet-text {
+  font-size: 12px;
+  color: rgba(235, 235, 245, 0.72);
+  padding: 12px 16px 11px;
+}
+
+.pt-sheet-btn {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: none;
+  transition-duration: 120ms;
+}
+
+.pt-sheet-btn:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.pt-sheet-btn:last-child {
+  border-radius: 0 0 16px 16px;
+}
+
+.pt-sheet-btn.pt-danger,
+.pt-wait-btn.pt-danger {
+  color: #ff6961;
+  font-weight: 600;
+}
+
+.pt-sheet-btn.pt-accent {
+  color: #4da3ff;
+  font-weight: 600;
+}
+
+/* Waiting for the programs to close. */
+
+.pt-wait {
+  margin: 14px 4px 0;
+  padding: 11px 12px 10px;
+  spacing: 10px;
+  border-radius: 16px;
+  background-color: rgba(10, 132, 255, 0.12);
+}
+
+.pt-wait-text {
+  font-size: 12px;
+  color: rgba(235, 235, 245, 0.8);
+}
+
+.pt-wait-row {
+  spacing: 8px;
+}
+
+.pt-wait-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  padding: 6px 0;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition-duration: 160ms;
+}
+
+.pt-wait-btn:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Four tiles, Fitness-style. */
+
+.pt-tiles {
+  margin: 12px 4px 0;
+  spacing: 8px;
+}
+
+.pt-tiles-row {
+  spacing: 8px;
+}
+
+.pt-tile {
+  background-color: rgba(255, 255, 255, 0.065);
+  border-radius: 14px;
+  padding: 9px 12px 10px;
+}
+
+.pt-tile-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(235, 235, 245, 0.55);
+}
+
+.pt-tile-value {
+  font-family: "Inter Display", "Inter", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  font-feature-settings: "tnum";
+  color: #ffffff;
+  margin-top: 2px;
+}
+
+.pt-tile-value.pt-tone-green {
+  color: #4ade80;
+}
+
+.pt-tile-value.pt-tone-amber {
+  color: #ffb340;
+}
+
+.pt-tile-value.pt-tone-red {
+  color: #ff6961;
+}
+
+.pt-tile-sub {
+  font-size: 11px;
+  font-feature-settings: "tnum";
+  color: rgba(235, 235, 245, 0.42);
+  margin-top: 1px;
+}
+
+/* Who goes through the tunnel. */
+
+.pt-users {
+  background-color: rgba(255, 255, 255, 0.065);
+  border-radius: 16px;
+  margin: 12px 4px 0;
+  padding: 10px 12px 8px;
+  spacing: 6px;
+}
+
+.pt-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.pt-section-right {
+  font-size: 12px;
+  font-feature-settings: "tnum";
+  color: rgba(235, 235, 245, 0.55);
+}
+
+.pt-rows {
+  spacing: 2px;
+}
+
+.pt-row {
+  spacing: 10px;
+  padding: 3px 0;
+}
+
+.pt-row-icon {
+  color: rgba(235, 235, 245, 0.75);
+}
+
+.pt-row-name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.pt-row-right {
+  font-size: 12px;
+  font-feature-settings: "tnum";
+  color: rgba(235, 235, 245, 0.45);
+}
+
+.pt-row-right.pt-row-live {
+  color: #4ade80;
+}
+
+.pt-empty {
+  font-size: 12px;
+  color: rgba(235, 235, 245, 0.42);
+  padding: 2px 0 4px;
+}
+
+.pt-footer {
+  font-size: 11px;
+  font-feature-settings: "tnum";
+  color: rgba(235, 235, 245, 0.35);
+  margin: 9px 14px 0;
+}
