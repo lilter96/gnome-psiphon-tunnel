@@ -177,7 +177,7 @@ class Card extends St.BoxLayout {
             style_class: 'pt-picker-scroll',
             hscrollbar_policy: St.PolicyType.NEVER,
             vscrollbar_policy: St.PolicyType.AUTOMATIC,
-            overlay_scrollbars: true,
+            overlay_scrollbars: false,     // a bar of its own, not over the right-hand chips
             child: this._chips,
         });
         this._pickerNote = wrap(new St.Label({style_class: 'pt-picker-note'}));

@@ -112,7 +112,11 @@ export default class PsiphonTunnelExtension extends Extension {
         this._icons = new Map();
 
         const self = new Gio.Credentials().get_unix_pid();
-        this._psiphon = new Psiphon(defaultPaths(this._home), () => this._refresh());
+        // the proxy follows Psiphon at once, not on the next tick
+        this._psiphon = new Psiphon(defaultPaths(this._home), () => {
+            this._syncProxy();
+            this._refresh();
+        });
         this._users = new Users({
             self,
             exclude: () => this._psiphon ? [this._psiphon.proc?.pid, ...this._psiphon.extra.map(p => p.pid)] : [],
@@ -348,6 +352,8 @@ export default class PsiphonTunnelExtension extends Extension {
 
     _syncProxy() {
         const ps = this._psiphon;
+        if (!ps)
+            return;
         const plan = proxyPlan({
             want: this._settings.get_boolean('system-proxy'),
             state: ps.state,

@@ -19,14 +19,15 @@ const meta = JSON.parse(decoder.decode(GLib.file_get_contents(`${src}/meta.json`
 const load = name => Cairo.ImageSurface.createFromPNG(`${src}/${name}.png`);
 
 // The card is not fully opaque. Beside the mole it holds nothing but its own
-// background, so any pattern there is something showing through.
+// background, so any pattern there is something showing through. Dirt flying
+// out of the hole comes 132 px close to the edge, so the strips stop short.
 function assertPlain(name) {
     const pb = GdkPixbuf.Pixbuf.new_from_file(`${src}/${name}.png`);
     const px = pb.get_pixels(), stride = pb.get_rowstride(), n = pb.get_n_channels();
     const w = pb.get_width();
     const ref = px.slice(60 * stride + 16 * n, 60 * stride + 16 * n + 3);
     for (let y = 60; y < 330; y++) {
-        for (const [x0, x1] of [[16, 140], [w - 140, w - 16]]) {
+        for (const [x0, x1] of [[16, 120], [w - 120, w - 16]]) {
             for (let x = x0; x < x1; x++) {
                 const i = y * stride + x * n;
                 if (Math.max(...[0, 1, 2].map(c => Math.abs(px[i + c] - ref[c]))) > 1)

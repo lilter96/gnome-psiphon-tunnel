@@ -31,7 +31,7 @@ const sleep = ms => new Promise(r => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms,
 const log = m => console.log(`[pt-media] ${m}`);
 const now = () => GLib.get_monotonic_time() / 1000;
 const meta = {checks: {}};
-const TALL = 1500;      // taller than the popup ever gets, at 2x
+const TALL = 1900;      // taller than the popup ever gets, at 2x
 
 function check(name, ok, detail = '') {
     meta.checks[name] = !!ok;
@@ -138,7 +138,7 @@ export default class Media extends Extension {
         log(`paths: ${JSON.stringify(ps().paths)}`);
         check('starts off', ps().state === 'off', ps().state);
         check('speaks the language it was set to', me._settings.get_string('language') === L.code &&
-            me._card._title.text === L.titles.off, me._card._title.text);
+            ind().accessible_name === L.a11y.off, ind().accessible_name);
         check('system proxy left alone by default', proxy.get_string('mode') === 'none', proxyNow());
 
         // a timeline of states, as the panel sees them
@@ -154,6 +154,7 @@ export default class Media extends Extension {
         ind().menu.open();
         await sleep(1500);
         await shot('card_off', box());
+        check('the popup too', me._card._title.text === L.titles.off, me._card._title.text);
 
         // Turn on
         let t0 = now();
@@ -183,15 +184,17 @@ export default class Media extends Extension {
             held &&= proxy.get_string('mode') === 'manual';
             return GLib.SOURCE_CONTINUE;
         });
-        // through the popup, the way a click goes: the country row, then the chip
+        // through the popup, the way a click goes: the country row, then the chip.
+        // A real Psiphon with a fresh data folder names no countries on its
+        // first run: the list is the built-in one until it does.
         me._card._countryRow.emit('clicked', 1);
         await sleep(1200);
-        check('the list shows the countries Psiphon offers', me._card._picker.visible &&
-            ps().log.regions.includes('DE'), ps().log.regions.join());
-        await shot('card_picker', box());
         const chips = [];
         const walk = a => a.get_children().forEach(c => (c.accessible_name === L.region('DE') ? chips.push(c) : walk(c)));
         walk(me._card._chips);
+        check('the country list opens', me._card._picker.visible && chips.length === 1,
+            ps().log.regions.join() || 'built-in');
+        await shot('card_picker', box());
         t0 = now();
         chips[0]?.emit('clicked', 1);
         const switching = await until(() => me._switching === 'DE', 3000, 20);
@@ -205,6 +208,10 @@ export default class Media extends Extension {
         check('country written to client.conf', JSON.parse(cat(ps().paths.conf)).EgressRegion === 'DE');
         check('system proxy kept through the switch', held && proxy.get_string('mode') === 'manual', proxyNow());
         check('new Psiphon, new pid file', ps().proc?.pid !== pid && cat(ps().paths.pidfile) === String(ps().proc?.pid));
+        // with a server list in its data folder now, it says which countries it has
+        check('Psiphon names its countries', await until(() => ps().log.regions.includes('DE'), 20000),
+            `${ps().log.regions.length}: ${ps().log.regions.join()}`);
+        check('and the list keeps them', me._state.regions?.join() === ps().log.regions.join());
         pid = ps().proc?.pid;
         await sleep(2000);
         await shot('card_de', box());
@@ -275,6 +282,7 @@ export default class Media extends Extension {
         check('Psiphon said goodbye', ps().log.exited);
         check('pid file removed', !GLib.file_test(ps().paths.pidfile, GLib.FileTest.EXISTS));
         check('told about it', notifications().includes(L.notify.closedTitle), JSON.stringify(notifications()));
+        // at once, not on the next tick
         check('system proxy put back once Psiphon is gone', proxy.get_string('mode') === 'none' &&
             proxyHttp.get_string('host') === '', proxyNow());
         ind().menu.open();
