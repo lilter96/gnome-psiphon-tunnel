@@ -142,6 +142,20 @@ test('install.sh sets up Psiphon, the commands and the extension, and psi-on wor
     }
 });
 
+test('a machine without GNOME Shell still gets Psiphon and the commands', async () => {
+    const box = await sandbox();
+    try {
+        GLib.file_set_contents(box.at('fakebin', 'gnome-shell'), '#!/bin/sh\nexit 127\n');
+        GLib.chmod(box.at('fakebin', 'gnome-shell'), 0o755);
+        const r = await install(box, '--no-enable');
+        equal(r.status, 0, r.err + r.out);
+        assert(/GNOME Shell is not here/.test(r.out), r.out);
+        assert(exists(box.paths.bin) && exists(box.cmd('psi-on')), 'installed');
+    } finally {
+        rmrf(box);
+    }
+});
+
 test('a second run keeps your Psiphon and your config; --update-psiphon replaces the binary', async () => {
     const box = await sandbox();
     try {

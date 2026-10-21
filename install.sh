@@ -130,7 +130,7 @@ check_system() {
     has gjs || die "gjs is missing: the extension needs GNOME Shell, which brings it"
     has glib-compile-schemas || die "glib-compile-schemas is missing (package libglib2.0-bin on Debian and Ubuntu)"
     local v supported
-    v=$(gnome-shell --version 2>/dev/null | sed -n 's/^GNOME Shell \([0-9]*\).*/\1/p')
+    v=$(gnome-shell --version 2>/dev/null | sed -n 's/^GNOME Shell \([0-9]*\).*/\1/p') || v=''
     supported=$(tr -d '\n ' <"$here/$UUID/metadata.json" | sed -n 's/.*"shell-version":\[\([^]]*\)\].*/\1/p' | tr -d '"' | tr ',' ' ')
     if [ -z "$v" ]; then
         warn "GNOME Shell is not here: the commands work, the extension needs GNOME"
