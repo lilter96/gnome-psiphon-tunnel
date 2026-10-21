@@ -1,5 +1,7 @@
 # Psiphon Tunnel
 
+[![test](https://github.com/lilter96/gnome-psiphon-tunnel/actions/workflows/test.yml/badge.svg)](https://github.com/lilter96/gnome-psiphon-tunnel/actions/workflows/test.yml)
+
 A GNOME Shell extension that puts the [Psiphon](https://github.com/Psiphon-Labs/psiphon-tunnel-core)
 console client in the top bar. A mole in a miner's helmet digs the tunnel. It
 sleeps while Psiphon is off, digs while Psiphon looks for a server, and stands
@@ -51,6 +53,25 @@ Shell restart both turn extensions off, and the tunnel has to survive them.
 for its Psiphon only when it runs the same binary with the same config. A
 relative `-config` is resolved against the process's working directory. Another
 Psiphon on the same machine, with its own binary or config, is never touched.
+
+**For the terminal, [`bin/psi`](bin/psi) is a safer pair.** Install it as
+`psi-on` and `psi-off`:
+
+```sh
+install -m 755 bin/psi ~/.local/bin/psi
+ln -s psi ~/.local/bin/psi-on
+ln -s psi ~/.local/bin/psi-off
+```
+
+The aliases above have two problems. Run `psi-on` twice and it starts a second
+Psiphon on ports the first one holds, wipes the first one's log and puts its
+own pid in the pid file. `psi-off` then signals whatever process has that pid
+and returns at once. The script does what the extension does instead. `psi-on`
+says so if Psiphon already runs, refuses a taken port without touching the log,
+and starts Psiphon in its own session and scope. `psi-off` stops only a process
+that runs this binary with this config. It waits for that process to exit, and
+kills it after 5 seconds if it hangs. Either one can stop what the other
+started.
 
 ## Closing it gracefully
 
@@ -117,11 +138,11 @@ and every 10 seconds otherwise.
 
 ## Install
 
-Needs GNOME Shell 46 and Psiphon's console client set up as above. From the
-repository's root:
+Needs GNOME Shell 46 and Psiphon's console client set up as above.
 
 ```sh
-ln -s "$PWD/psiphon-tunnel@terentiy" ~/.local/share/gnome-shell/extensions/
+git clone https://github.com/lilter96/gnome-psiphon-tunnel
+ln -s "$PWD/gnome-psiphon-tunnel/psiphon-tunnel@terentiy" ~/.local/share/gnome-shell/extensions/
 gnome-extensions enable psiphon-tunnel@terentiy
 ```
 
@@ -131,7 +152,7 @@ A running Psiphon is picked up as it is.
 ## Development
 
 ```sh
-gjs -m tests/run.js                  # log parsing, sockets, and start/stop against a fake Psiphon
+gjs -m tests/run.js                  # log parsing, sockets, start/stop and bin/psi against a fake Psiphon
 gjs -m tools/frames.js out.png 2     # the mole in every state, no Shell restart
 gjs -m tools/glyph.js out.png        # the top bar item, large
 tools/media/capture.sh smoke         # a copy of the real Psiphon in an isolated Shell
@@ -141,7 +162,8 @@ tools/media/capture.sh media         # README media against the fake Psiphon
 The process tests compile [`tests/fake-psiphon.c`](tests/fake-psiphon.c), which
 takes `-config`, listens on the config's port, writes Psiphon-style notices and
 says goodbye on SIGTERM. Knobs in the environment make it ignore SIGTERM or
-crash. Each test gets its own directory and random ports.
+crash. Each test gets its own directory and random ports, and `bin/psi` is
+pointed at it with `PSI_DIR`.
 
 Both captures start a throwaway `gnome-shell --headless` with its own bus, dconf,
 XDG directories and `$HOME`. The smoke test copies your Psiphon binary and

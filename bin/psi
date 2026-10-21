@@ -1,0 +1,122 @@
+#!/bin/sh
+# psi-on and psi-off: Psiphon's console client in the background, run the way
+# the psiphon-tunnel extension runs it, so either can stop what the other
+# started. Install this file as psi-on and psi-off; the name picks the job.
+#
+#   psi-on    start Psiphon, unless it already runs
+#   psi-off   stop it: SIGTERM, up to 5 s for its goodbye, then SIGKILL
+#
+# PSI_DIR (default ~/psiphon) holds psiphon, client.conf, psiphon.log and
+# psiphon.pid. PSI_GRACE changes the 5 s.
+set -u
+dir=${PSI_DIR:-$HOME/psiphon}
+bin=$dir/psiphon conf=$dir/client.conf log=$dir/psiphon.log pidfile=$dir/psiphon.pid
+grace=${PSI_GRACE:-5}
+
+# Is $1 our Psiphon: this binary, started with this config? A zombie or a
+# reused pid is not.
+ours() {
+    [ "$(readlink -f "/proc/$1/exe" 2>/dev/null)" = "$(readlink -f "$bin")" ] || return 1
+    c=$(tr '\0' '\n' <"/proc/$1/cmdline" 2>/dev/null |
+        sed -n -e '/^--\{0,1\}config$/{n;p;q;}' -e 's/^--\{0,1\}config=//p' | head -n 1)
+    [ -n "$c" ] || return 1
+    case $c in /*) ;; *) c=$(readlink "/proc/$1/cwd")/$c ;; esac
+    [ "$(readlink -f "$c")" = "$(readlink -f "$conf")" ]
+}
+
+# Our running Psiphons, the one in the pid file first.
+pids() {
+    { sed -n '1{/^[0-9][0-9]*$/p;}' "$pidfile" 2>/dev/null; pgrep -x psiphon; } | awk '!seen[$0]++' |
+        while read -r p; do ours "$p" && echo "$p"; done
+}
+
+alive() {
+    for p in $1; do ours "$p" && echo "$p"; done
+}
+
+on() {
+    running=$(pids | head -n 1)
+    if [ -n "$running" ]; then
+        # psi-on used to start a second copy here and wipe the log of the first
+        [ "$(cat "$pidfile" 2>/dev/null)" = "$running" ] || echo "$running" >"$pidfile"
+        echo "Psiphon is already running (pid $running)"
+        return 0
+    fi
+    [ -x "$bin" ] || { echo "no Psiphon at $bin" >&2; return 1; }
+    for key in LocalHttpProxyPort LocalSocksProxyPort; do
+        port=$(sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "$conf" | head -n 1)
+        [ -n "$port" ] && ss -Hltn "sport = :$port" | grep -q . || continue
+        who=$(ss -Hltnp "sport = :$port" | sed -n 's/.*users:(("\([^"]*\)".*/\1/p' | head -n 1)
+        echo "port $port is taken${who:+ by $who}" >&2
+        return 1
+    done
+
+    # Psiphon must not try to reach its servers through itself
+    unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+    cd "$HOME" || return 1
+    # Its own session, and its own systemd scope when there is a user systemd,
+    # like the extension does: closing the terminal does not touch it.
+    if systemd-run --user --scope --quiet --collect true </dev/null >/dev/null 2>&1; then
+        setsid systemd-run --user --scope --quiet --collect --unit="app-psiphon-tunnel-$$" \
+            --description=Psiphon -- "$bin" -config "$conf" </dev/null >"$log" 2>&1 &
+    else
+        setsid "$bin" -config "$conf" </dev/null >"$log" 2>&1 &
+    fi
+    pid=$!
+    # until the exec, the pid is setsid or systemd-run
+    i=0
+    while [ $i -lt 40 ] && ! ours "$pid" && kill -0 "$pid" 2>/dev/null; do
+        sleep 0.05
+        i=$((i + 1))
+    done
+    # a bad config or a port taken meanwhile ends it at once
+    sleep 0.5
+    if ! ours "$pid"; then
+        echo "Psiphon exited at once, the end of $log:" >&2
+        tail -n 3 "$log" >&2
+        return 1
+    fi
+    echo "$pid" >"$pidfile"
+    echo "Psiphon started (pid $pid)"
+}
+
+off() {
+    list=$(pids)
+    if [ -z "$list" ]; then
+        rm -f "$pidfile"
+        echo "Psiphon is not running"
+        return 0
+    fi
+    t0=$(date +%s%N)
+    kill -TERM $list
+    i=0
+    while [ $i -lt $((grace * 20)) ] && [ -n "$(alive "$list")" ]; do
+        sleep 0.05
+        i=$((i + 1))
+    done
+    left=$(alive "$list")
+    if [ -n "$left" ]; then
+        kill -KILL $left
+        sleep 0.2
+        if [ -n "$(alive "$left")" ]; then
+            echo "Psiphon does not stop (pid $(echo $left))" >&2
+            return 1
+        fi
+        echo "Psiphon did not stop in $grace s, killed"
+    else
+        echo "Psiphon stopped in $((($(date +%s%N) - t0) / 1000000)) ms"
+    fi
+    rm -f "$pidfile"
+}
+
+case ${0##*/} in
+psi-on) on ;;
+psi-off) off ;;
+*)
+    case ${1:-} in
+    on) on ;;
+    off) off ;;
+    *) echo "usage: psi-on | psi-off" >&2; exit 2 ;;
+    esac
+    ;;
+esac
