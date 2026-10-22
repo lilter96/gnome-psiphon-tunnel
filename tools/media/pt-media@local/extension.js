@@ -43,8 +43,11 @@ function hideBehind() {
     Main.layoutManager._backgroundGroup.hide();
 }
 
-async function shot(name, [x, y, w, h]) {
-    hideBehind();
+async function shot(name, [x, y, w, h], {windows = false} = {}) {
+    if (windows)
+        global.window_group.show();
+    else
+        hideBehind();
     const file = Gio.File.new_for_path(`${OUT}/${name}.png`);
     const stream = file.replace(null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
     await new Shell.Screenshot().screenshot_area(Math.round(x), Math.round(y), Math.round(w), Math.round(h), stream);
@@ -73,13 +76,12 @@ function notifications() {
 // A process that looks like Claude Code to the extension: named claude, told
 // to use the tunnel by its environment.
 function fakeClaude(port) {
+    // built by capture.sh: a copy of sleep will not do where coreutils is
+    // one program that goes by the name it was called with
     const bin = GLib.build_filenamev([GLib.get_home_dir(), 'bin', 'claude']);
-    GLib.mkdir_with_parents(GLib.path_get_dirname(bin), 0o755);
-    Gio.File.new_for_path('/bin/sleep').copy(Gio.File.new_for_path(bin), Gio.FileCopyFlags.OVERWRITE, null, null);
-    GLib.chmod(bin, 0o755);
     const l = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE});
     l.setenv('HTTPS_PROXY', `http://127.0.0.1:${port}`, true);
-    return l.spawnv([bin, '600']);
+    return l.spawnv([bin]);
 }
 
 // Disabling psiphon-tunnel makes the Shell disable and re-enable every
@@ -260,11 +262,15 @@ export default class Media extends Extension {
 
         // a Shell restart (or the lock screen) in the middle of waiting keeps the promise
         const proc = {...ps().proc};
-        await Main.extensionManager._callExtensionDisable(UUID);
+        // the way a user turns it off: through enabled-extensions (this shell's own)
+        const active = ext.state;
+        Main.extensionManager.disableExtension(UUID);
+        check('turns off', await until(() => ext.state !== active, 5000), `state ${ext.state}`);
         await sleep(1500);
         check('disable leaves Psiphon running', stillRunning(proc));
         check('disable puts the system proxy back', proxy.get_string('mode') === 'none', proxyNow());
-        await Main.extensionManager._callExtensionEnable(UUID);
+        Main.extensionManager.enableExtension(UUID);
+        check('and on again', await until(() => ext.state === active, 5000), `state ${ext.state}`);
         me = ext.stateObj;
         check('adopts it after enable', ps().proc?.pid === pid, `${ps().proc?.pid} vs ${pid}`);
         check('and points the proxy at it again', await until(() => proxy.get_string('mode') === 'manual', 5000), proxyNow());
@@ -331,6 +337,31 @@ export default class Media extends Extension {
         GLib.source_remove(watch);
         log(`timeline: ${seen.map(([s, t]) => `${s}@${t - seen[0][1]}`).join(' ')}`);
         check('nothing left running', findPsiphon(ps().paths).length === 0);
+        await this._prefs();
+    }
+
+    // The settings window, opened the way the Extensions app opens it: a
+    // process of its own, on this shell's display (wayland-0 in the throwaway
+    // runtime dir; DISPLAY is unset, so never yours).
+    async _prefs() {
+        const window = () => global.get_window_actors().map(a => a.meta_window)
+            .find(w => w.get_wm_class() === 'org.gnome.Shell.Extensions');
+        Main.extensionManager.openExtensionPrefs(UUID, '', {});
+        const opened = await until(window, 30000);
+        check('the settings window opens', opened, opened ? window().get_title() : '');
+        if (!opened)
+            return;
+        await sleep(2000);
+        const r = window().get_frame_rect();
+        await shot('prefs', [r.x, r.y, r.width, r.height], {windows: true});
+        // the Extensions app shows its own error page and logs the stack; its
+        // warnings about Vulkan and Adw's introspection are the container's
+        const shellLog = new TextDecoder().decode(GLib.file_get_contents(`${OUT}/shell.log`)[1]);
+        const broken = shellLog.split('\n').filter(l => /Extensions:\d+\): Gjs-CRITICAL|psiphon-tunnel@terentiy\/prefs\.js/.test(l) &&
+            !/\[pt-media\]/.test(l));
+        check('and shows them, no errors', broken.length === 0, broken.slice(0, 3).join(' | '));
+        window().delete(global.get_current_time());
+        check('and closes', await until(() => !window(), 5000));
     }
 
     // Made-up data only: the card is fed models, the panel glyph states.

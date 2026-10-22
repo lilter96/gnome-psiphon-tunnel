@@ -41,6 +41,9 @@ mkdir -m 700 "$tmp/runtime"
 ln -s "$repo/psiphon-tunnel@terentiy" "$here/pt-media@local" "$tmp/data/gnome-shell/extensions/"
 schemas=$repo/psiphon-tunnel@terentiy/schemas
 glib-compile-schemas --strict "$schemas"
+# a program called claude that only waits, to sit on the tunnel
+mkdir "$tmp/home/bin"
+printf '#include <unistd.h>\nint main(void) { for (;;) pause(); }\n' | cc -x c -o "$tmp/home/bin/claude" -
 
 psi=$tmp/home/psiphon
 if [ "$mode" = smoke ]; then

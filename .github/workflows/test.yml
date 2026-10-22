@@ -25,3 +25,25 @@ jobs:
         run: gjs -m tests/run.js
       - name: The mole renders
         run: gjs -m tools/frames.js /tmp/frames.png 1 && gjs -m tools/glyph.js /tmp/glyph.png
+
+  shell:
+    # the whole cycle against the fake Psiphon, in each distribution's headless Shell
+    name: GNOME ${{ matrix.gnome }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {gnome: 46, image: 'ubuntu:24.04'}
+          - {gnome: 48, image: 'fedora:42'}
+          - {gnome: 49, image: 'fedora:43'}
+          - {gnome: 50, image: 'ubuntu:26.04'}
+          - {gnome: 51, image: 'fedora:45'}
+    steps:
+      - uses: actions/checkout@v5
+      - run: tools/versions/check.sh ${{ matrix.image }}
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnome-${{ matrix.gnome }}
+          path: tools/versions/out

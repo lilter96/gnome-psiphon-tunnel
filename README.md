@@ -69,7 +69,7 @@ command gets a warning.
 | `--no-enable` | install, but leave the extension off |
 | `--uninstall` | remove the extension, the commands and the settings; `~/psiphon` stays |
 
-Needs GNOME Shell 46, and `curl` or `wget`. Psiphon builds its console client
+Needs GNOME Shell 46 to 51, and `curl` or `wget`. Psiphon builds its console client
 for x86_64 only. On another machine, build
 [psiphon-tunnel-core](https://github.com/Psiphon-Labs/psiphon-tunnel-core) (Go),
 put it at `~/psiphon/psiphon` and run `./install.sh` again.
@@ -228,7 +228,9 @@ gjs -m tests/run.js                  # parsing, both languages, the country, the
 gjs -m tools/frames.js out.png 2     # the mole in every state, no Shell restart
 gjs -m tools/glyph.js out.png        # the top bar item, large
 tools/media/capture.sh smoke         # a copy of the real Psiphon in an isolated Shell
+tools/media/capture.sh check         # the same cycle against the fake Psiphon, no network
 tools/media/capture.sh media         # README media against the fake Psiphon
+tools/versions/check.sh fedora:45    # the check in another distribution's GNOME Shell, in docker
 PT_MEDIA_LANG=ru tools/media/capture.sh smoke    # the smoke test, the popup in Russian
 ```
 
@@ -257,8 +259,11 @@ process of your real session.
 ## Limitations
 
 - The paths are fixed: `~/psiphon/{psiphon,client.conf,psiphon.log,psiphon.pid}`.
-- Made for GNOME Shell 46 and tested there, under X11 and in the headless
-  Shell of the captures.
+- GNOME Shell 46 to 51. Made on 46 under X11; every push runs the whole
+  cycle, the settings window included, in the headless Shell of Ubuntu 24.04
+  (46), Fedora 42 (48), Fedora 43 (49), Ubuntu 26.04 (50) and Fedora 45 (51).
+  47 is listed but never run: its headless Shell crashes in a container by
+  itself, before any extension loads, and no maintained distribution ships it.
 - The Psiphon that `install.sh` downloads is x86_64 only.
 - A program set to use the tunnel some other way, such as a proxy in its own
   settings, is seen only once it connects.

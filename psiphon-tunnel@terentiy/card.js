@@ -18,6 +18,9 @@ const RUNNING = new Set(['starting', 'connecting', 'on', 'reconnecting']);
 const MAX_ROWS = 5;
 const STOP_NOTE = 10 * 60;      // how long "closed in 0.1 s" stays under the title
 const CHIP_ROW = 40;            // px a row of countries takes, spacing included
+// A column: `vertical` until GNOME 48 brought `orientation`; 51 dropped `vertical`.
+const COLUMN = GObject.Object.find_property.call(St.BoxLayout, 'orientation')
+    ? {orientation: Clutter.Orientation.VERTICAL} : {vertical: true};
 const PICKER_MAX = 296;         // px of countries before the list scrolls
 
 // "🇩🇪 Germany"
@@ -37,7 +40,7 @@ function button(style, onClick) {
 
 // A tile: a small caption, a value, one quiet line.
 function makeTile() {
-    const box = new St.BoxLayout({vertical: true, style_class: 'pt-tile', x_expand: true});
+    const box = new St.BoxLayout({...COLUMN, style_class: 'pt-tile', x_expand: true});
     const label = new St.Label({style_class: 'pt-tile-label'});
     const value = new St.Label({style_class: 'pt-tile-value'});
     const sub = new St.Label({style_class: 'pt-tile-sub'});
@@ -62,7 +65,7 @@ function toggle(actor, cls, on) {
 export const Card = GObject.registerClass(
 class Card extends St.BoxLayout {
     _init() {
-        super._init({vertical: true, style_class: 'pt-card'});
+        super._init({...COLUMN, style_class: 'pt-card'});
         this.onAction = null;
         this.mole = new Mole({reducedMotion: !animationsEnabled()});
         this.scene = new SceneView(this.mole);
@@ -79,7 +82,7 @@ class Card extends St.BoxLayout {
         this._main = button('pt-main', () => this._act(this._mainAction));
 
         // closing the tunnel under someone's feet: say who, offer to wait
-        this._sheet = new St.BoxLayout({vertical: true, style_class: 'pt-sheet', visible: false});
+        this._sheet = new St.BoxLayout({...COLUMN, style_class: 'pt-sheet', visible: false});
         this._sheetText = wrap(new St.Label({style_class: 'pt-sheet-text'}));
         this._sheetText.clutter_text.line_alignment = Pango.Alignment.CENTER;
         this._now = button('pt-sheet-btn pt-danger', () => this._act('stop-now'));
@@ -89,7 +92,7 @@ class Card extends St.BoxLayout {
             this._sheet.add_child(a);
 
         // waiting for them to finish
-        this._wait = new St.BoxLayout({vertical: true, style_class: 'pt-wait', visible: false});
+        this._wait = new St.BoxLayout({...COLUMN, style_class: 'pt-wait', visible: false});
         this._waitText = wrap(new St.Label({style_class: 'pt-wait-text'}));
         const waitRow = new St.BoxLayout({style_class: 'pt-wait-row'});
         waitRow.layout_manager.homogeneous = true;
@@ -101,7 +104,7 @@ class Card extends St.BoxLayout {
         this._wait.add_child(waitRow);
 
         this._tiles = [0, 1, 2, 3].map(() => makeTile());
-        this._grid = new St.BoxLayout({vertical: true, style_class: 'pt-tiles'});
+        this._grid = new St.BoxLayout({...COLUMN, style_class: 'pt-tiles'});
         for (const pair of [this._tiles.slice(0, 2), this._tiles.slice(2)]) {
             const row = new St.BoxLayout({style_class: 'pt-tiles-row'});
             row.layout_manager.homogeneous = true;
@@ -109,13 +112,13 @@ class Card extends St.BoxLayout {
             this._grid.add_child(row);
         }
 
-        this._users = new St.BoxLayout({vertical: true, style_class: 'pt-users'});
+        this._users = new St.BoxLayout({...COLUMN, style_class: 'pt-users'});
         const head = new St.BoxLayout({style_class: 'pt-section-head'});
         this._usersTitle = new St.Label({style_class: 'pt-section-title', x_expand: true});
         this._usersRight = new St.Label({style_class: 'pt-section-right'});
         head.add_child(this._usersTitle);
         head.add_child(this._usersRight);
-        this._rows = new St.BoxLayout({vertical: true, style_class: 'pt-rows'});
+        this._rows = new St.BoxLayout({...COLUMN, style_class: 'pt-rows'});
         this._users.add_child(head);
         this._users.add_child(this._rows);
 
@@ -132,7 +135,7 @@ class Card extends St.BoxLayout {
 
     // Country and system proxy, two rows of one rounded box.
     _buildGroup() {
-        this._group = new St.BoxLayout({vertical: true, style_class: 'pt-group'});
+        this._group = new St.BoxLayout({...COLUMN, style_class: 'pt-group'});
 
         this._countryRow = button('pt-group-row', () => this._pick(true));
         const country = new St.BoxLayout({x_expand: true});
@@ -146,7 +149,7 @@ class Card extends St.BoxLayout {
 
         this._proxyRow = button('pt-group-row', () => this._act('proxy'));
         const proxy = new St.BoxLayout({x_expand: true});
-        const text = new St.BoxLayout({vertical: true, x_expand: true, y_align: CENTER});
+        const text = new St.BoxLayout({...COLUMN, x_expand: true, y_align: CENTER});
         this._proxyLabel = new St.Label({style_class: 'pt-group-label'});
         this._proxySub = new St.Label({style_class: 'pt-group-sub'});
         text.add_child(this._proxyLabel);
@@ -163,7 +166,7 @@ class Card extends St.BoxLayout {
 
     // The list of countries: Psiphon's fastest first, then the rest by name.
     _buildPicker() {
-        this._picker = new St.BoxLayout({vertical: true, style_class: 'pt-picker', visible: false});
+        this._picker = new St.BoxLayout({...COLUMN, style_class: 'pt-picker', visible: false});
         const head = new St.BoxLayout({style_class: 'pt-picker-head'});
         this._back = new St.Button({style_class: 'pt-picker-back', can_focus: true, y_align: CENTER});
         this._back.connect('clicked', () => this._pick(false));
@@ -172,7 +175,7 @@ class Card extends St.BoxLayout {
         head.add_child(this._back);
         head.add_child(this._pickerTitle);
 
-        this._chips = new St.BoxLayout({vertical: true, style_class: 'pt-chips'});
+        this._chips = new St.BoxLayout({...COLUMN, style_class: 'pt-chips'});
         this._scroll = new St.ScrollView({
             style_class: 'pt-picker-scroll',
             hscrollbar_policy: St.PolicyType.NEVER,
