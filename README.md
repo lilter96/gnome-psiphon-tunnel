@@ -131,7 +131,9 @@ they read `http_proxy` and its kin from the environment.
 
 English or Russian. It follows the system language unless you pick one in the
 settings (`gnome-extensions prefs psiphon-tunnel@terentiy`) or install with
-`--lang`. The language changes on the spot.
+`--lang`. The language changes on the spot. Ubuntu's desktop has the settings
+window; on a plain Debian or Ubuntu GNOME it comes with the package
+`gnome-shell-extension-prefs`.
 
 ## How it runs Psiphon
 
