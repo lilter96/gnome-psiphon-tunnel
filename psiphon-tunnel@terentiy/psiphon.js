@@ -8,7 +8,7 @@ import Soup from 'gi://Soup?version=3.0';
 
 import {
     Meter, NoticeLog, failureOf, knownName, listeningPorts, parseSockets, proxyPorts, roots,
-    stopProcess, tunnelState,
+    setEgressRegion, stopProcess, tunnelState,
 } from './tunnel.js';
 
 Gio._promisify(Gio.Subprocess.prototype, 'communicate_utf8_async');
@@ -165,15 +165,33 @@ export function busyPorts() {
     return out;
 }
 
-// Ports from client.conf, for when Psiphon has not reported its own.
+// Ports and country from client.conf, for when Psiphon has not reported its
+// own. readable: the file is there and is JSON.
 export function configPorts(conf) {
     try {
         const c = JSON.parse(read(conf) ?? 'null');
         return {http: c?.LocalHttpProxyPort || null, socks: c?.LocalSocksProxyPort || null,
-            region: c?.EgressRegion || null};
+            region: c?.EgressRegion || null, readable: !!c};
     } catch {
-        return {http: null, socks: null, region: null};
+        return {http: null, socks: null, region: null, readable: false};
     }
+}
+
+// Sets EgressRegion in client.conf ('' for the fastest), the rest of the file
+// and its permissions as they were. Psiphon reads it when it starts.
+// -> true if the file changed
+export function writeRegion(conf, code) {
+    const path = resolve(conf);
+    const text = read(path);
+    if (text === null)
+        throw new Error(`cannot read ${conf}`);
+    const out = setEgressRegion(text, code);
+    if (out === text)
+        return false;
+    const mode = Gio.File.new_for_path(path).query_info('unix::mode', Gio.FileQueryInfoFlags.NONE, null)
+        .get_attribute_uint32('unix::mode') & 0o7777;
+    GLib.file_set_contents_full(path, out, GLib.FileSetContentsFlags.CONSISTENT, mode);
+    return true;
 }
 
 // --- Psiphon ----------------------------------------------------------------------

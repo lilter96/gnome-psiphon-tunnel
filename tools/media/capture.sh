@@ -9,9 +9,12 @@
 # user, including your session's.
 #
 #   tools/media/capture.sh smoke      # a real Psiphon copy, real network
+#   tools/media/capture.sh check      # the same against the fake Psiphon, no network
 #   tools/media/capture.sh media      # the fake Psiphon from tests/ → docs/media
+#   PT_MEDIA_LANG=ru tools/media/capture.sh smoke     # the popup in Russian
 set -euo pipefail
 mode=${1:-smoke}
+lang=${PT_MEDIA_LANG:-en}
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../.." && pwd)
 out=$here/out/$mode
@@ -29,12 +32,18 @@ reap() {
 }
 trap 'reap; rm -rf "$tmp"' EXIT
 
+case $mode in smoke | check | media) ;; *) echo "usage: capture.sh smoke|check|media"; exit 2 ;; esac
 for port in 18081 11081; do
     if ss -Hltn "sport = :$port" | grep -q .; then echo "port $port is busy, stopping"; exit 2; fi
 done
 mkdir -p "$tmp"/{config,state,cache} "$tmp/data/gnome-shell/extensions" "$tmp/home/psiphon"
 mkdir -m 700 "$tmp/runtime"
 ln -s "$repo/psiphon-tunnel@terentiy" "$here/pt-media@local" "$tmp/data/gnome-shell/extensions/"
+schemas=$repo/psiphon-tunnel@terentiy/schemas
+glib-compile-schemas --strict "$schemas"
+# a program called claude that only waits, to sit on the tunnel
+mkdir "$tmp/home/bin"
+printf '#include <unistd.h>\nint main(void) { for (;;) pause(); }\n' | cc -x c -o "$tmp/home/bin/claude" -
 
 psi=$tmp/home/psiphon
 if [ "$mode" = smoke ]; then
@@ -59,15 +68,22 @@ desktop_icons() { pgrep -f 'ding@rastersoft.com/app/[d]ing.js' || true; }
 icons_before=$(desktop_icons)
 
 export HOME=$tmp/home XDG_CONFIG_HOME=$tmp/config XDG_DATA_HOME=$tmp/data XDG_STATE_HOME=$tmp/state \
-    XDG_CACHE_HOME=$tmp/cache XDG_RUNTIME_DIR=$tmp/runtime PT_MEDIA_OUT=$out PT_MEDIA_MODE=$mode
+    XDG_CACHE_HOME=$tmp/cache XDG_RUNTIME_DIR=$tmp/runtime PT_MEDIA_OUT=$out PT_MEDIA_MODE=$mode \
+    PT_MEDIA_LANG=$lang PT_SCHEMAS=$schemas
 unset DISPLAY WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_SESSION_ID GNOME_SHELL_SESSION_MODE
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy NO_PROXY no_proxy
+# shellcheck disable=SC2016 # expanded by the inner shell
 timeout 600 dbus-run-session -- bash -c '
     gsettings set org.gnome.shell enabled-extensions "[\"psiphon-tunnel@terentiy\", \"pt-media@local\"]"
     gsettings set org.gnome.desktop.interface color-scheme prefer-dark
     gsettings set org.gnome.desktop.interface scaling-factor 2
+    gsettings --schemadir "$PT_SCHEMAS" set org.gnome.shell.extensions.psiphon-tunnel language "$PT_MEDIA_LANG"
+    # another GNOME than the one in metadata.json: load it all the same
+    [ "$PT_MEDIA_MODE" = check ] && gsettings set org.gnome.shell disable-extension-version-validation true
     [ -f "$XDG_CONFIG_HOME/dconf/user" ] || { echo "dconf is not isolated, stopping"; exit 3; }
-    exec nice -n 10 gnome-shell --mode=user --headless --no-x11 --virtual-monitor 2560x2200
+    # no Xwayland, where the flag still exists
+    x11=$(gnome-shell --help 2>&1 | grep -q -- --no-x11 && echo --no-x11)
+    exec nice -n 10 gnome-shell --mode=user --headless $x11 --virtual-monitor 2560x2200
 ' >"$out/shell.log" 2>&1 || true
 reap
 grep -E '\[pt-media\]|psiphon-tunnel|JS ERROR|JS WARNING|stopping' "$out/shell.log" || true

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.psiphon-tunnel" path="/org/gnome/shell/extensions/psiphon-tunnel/">
+    <key name="language" type="s">
+      <choices>
+        <choice value=""/>
+        <choice value="en"/>
+        <choice value="ru"/>
+      </choices>
+      <default>''</default>
+      <summary>Language of the popup</summary>
+      <description>'' follows the system; 'en' or 'ru' picks one.</description>
+    </key>
+    <key name="system-proxy" type="b">
+      <default>false</default>
+      <summary>Point the GNOME system proxy at the tunnel</summary>
+      <description>While the tunnel is open, the GNOME proxy setting points at Psiphon's ports. It is put back as it was once Psiphon stops.</description>
+    </key>
+  </schema>
+</schemalist>

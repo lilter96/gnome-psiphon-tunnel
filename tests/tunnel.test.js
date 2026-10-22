@@ -1,8 +1,11 @@
+import {LANGUAGES} from '../psiphon-tunnel@terentiy/lang.js';
 import {
-    Meter, NoticeLog, failureOf, flagEmoji, formatClock, formatDuration, formatRate, joinNames,
-    listeningPorts, parseSockets, proxyPorts, regionName, roots, stopProcess, tunnelState,
+    Meter, NoticeLog, failureOf, flagEmoji, formatClock, listeningPorts, parseSockets, proxyPorts, roots,
+    stopProcess, tunnelState,
 } from '../psiphon-tunnel@terentiy/tunnel.js';
 import {assert, deepEqual, equal, test} from './harness.js';
+
+const {en, ru} = LANGUAGES;
 
 const notice = (type, data, ts) => JSON.stringify({data, noticeType: type, timestamp: ts});
 
@@ -93,9 +96,10 @@ test('state: starting, connecting, on, reconnecting, stopping, failed, off', () 
     equal(tunnelState({alive: false, log, action: null, failure: null}), 'off');
 });
 
-test('regions read in Russian, with a flag', () => {
-    equal(regionName('NO'), 'Норвегия');
-    equal(regionName('XX'), 'XX');
+test('regions read in either language, with a flag', () => {
+    equal(ru.region('NO'), 'Норвегия');
+    equal(en.region('NO'), 'Norway');
+    equal(ru.region('XX'), 'XX');
     equal(flagEmoji('NO'), '\u{1F1F3}\u{1F1F4}');
     equal(flagEmoji('nope'), '');
     equal(flagEmoji(null), '');
@@ -158,11 +162,12 @@ test('a program and its children are one program', () => {
     deepEqual(roots([13], procs), [13]);
 });
 
-test('names are joined the Russian way', () => {
-    equal(joinNames([]), '');
-    equal(joinNames(['Claude Code']), 'Claude Code');
-    equal(joinNames(['Claude Code', 'Codex']), 'Claude Code и Codex');
-    equal(joinNames(['Claude Code', 'Codex', 'Firefox']), 'Claude Code, Codex и Firefox');
+test('names are joined the Russian way and the English way', () => {
+    equal(ru.join([]), '');
+    equal(ru.join(['Claude Code']), 'Claude Code');
+    equal(ru.join(['Claude Code', 'Codex']), 'Claude Code и Codex');
+    equal(ru.join(['Claude Code', 'Codex', 'Firefox']), 'Claude Code, Codex и Firefox');
+    equal(en.join(['Claude Code', 'Codex', 'Firefox']), 'Claude Code, Codex and Firefox');
 });
 
 test('busy ports: loopback and wildcard listeners, not other addresses', () => {
@@ -180,15 +185,19 @@ test('busy ports: loopback and wildcard listeners, not other addresses', () => {
 });
 
 test('words: durations, clocks and rates', () => {
-    equal(formatDuration(40), '40 с');
-    equal(formatDuration(45 * 60), '45 мин');
-    equal(formatDuration(3 * 3600 + 12 * 60), '3 ч 12 мин');
-    equal(formatDuration(2 * 86400 + 3 * 3600 + 5), '2 д 3 ч');
+    equal(ru.duration(40), '40 с');
+    equal(ru.duration(45 * 60), '45 мин');
+    equal(ru.duration(3 * 3600 + 12 * 60), '3 ч 12 мин');
+    equal(ru.duration(2 * 86400 + 3 * 3600 + 5), '2 д 3 ч');
+    equal(en.duration(3 * 3600 + 12 * 60), '3 h 12 min');
     equal(formatClock(7), '0:07');
     equal(formatClock(3723), '1:02:03');
-    equal(formatRate(0), '0 Б/с');
-    equal(formatRate(12 * 1024), '12 КБ/с');
-    equal(formatRate(1.4 * 1024 * 1024), '1,4 МБ/с');
+    equal(ru.rate(0), '0 Б/с');
+    equal(ru.rate(12 * 1024), '12 КБ/с');
+    equal(ru.rate(1.4 * 1024 * 1024), '1,4 МБ/с');
+    equal(en.rate(1.4 * 1024 * 1024), '1.4 MB/s');
+    equal(ru.ago(30), 'только что');
+    equal(en.ago(5 * 60), '5 min ago');
 });
 
 // A process that can be told to die, on a fake clock.

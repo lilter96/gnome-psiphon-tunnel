@@ -2,6 +2,6 @@
   "uuid": "pt-media@local",
   "name": "psiphon-tunnel media driver",
   "description": "Drives psiphon-tunnel inside a throwaway headless shell, see tools/media/capture.sh.",
-  "shell-version": ["46"],
+  "shell-version": ["46", "47", "48", "49", "50", "51"],
   "session-modes": ["user"]
 }

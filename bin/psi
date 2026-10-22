@@ -1,10 +1,14 @@
 #!/bin/sh
 # psi-on and psi-off: Psiphon's console client in the background, run the way
 # the psiphon-tunnel extension runs it, so either can stop what the other
-# started. Install this file as psi-on and psi-off; the name picks the job.
+# started. Install this file as psi, psi-on and psi-off; the name picks the job.
 #
-#   psi-on    start Psiphon, unless it already runs
-#   psi-off   stop it: SIGTERM, up to 5 s for its goodbye, then SIGKILL
+#   psi-on           start Psiphon, unless it already runs
+#   psi-off          stop it: SIGTERM, up to 5 s for its goodbye, then SIGKILL
+#   psi status       is it running, is the tunnel up, which country (also: psi)
+#   psi region       the country set in client.conf, and the ones Psiphon offers
+#   psi region DE    go through Germany; "auto" lets Psiphon pick the fastest.
+#                    A running Psiphon is restarted to take it.
 #
 # PSI_DIR (default ~/psiphon) holds psiphon, client.conf, psiphon.log and
 # psiphon.pid. PSI_GRACE changes the 5 s.
@@ -34,6 +38,79 @@ alive() {
     for p in $1; do ours "$p" && echo "$p"; done
 }
 
+# The last notice of a type in the log, as its raw JSON line.
+last_notice() {
+    grep -a "\"noticeType\":\"$1\"" "$log" 2>/dev/null | tail -n 1
+}
+
+# The country set in client.conf, "" for the fastest.
+egress() {
+    sed -n 's/.*"EgressRegion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$conf" 2>/dev/null | head -n 1
+}
+
+status() {
+    running=$(pids | head -n 1)
+    region=$(egress)
+    echo "country   ${region:-fastest (Psiphon picks)}"
+    if [ -z "$running" ]; then
+        echo "psiphon   not running"
+        return 0
+    fi
+    echo "psiphon   running, pid $running"
+    tunnels=$(last_notice Tunnels | sed -n 's/.*"count":\([0-9]*\).*/\1/p')
+    server=$(last_notice ConnectedServerRegion | sed -n 's/.*"serverRegion":"\([A-Z]*\)".*/\1/p')
+    if [ "${tunnels:-0}" -gt 0 ]; then
+        echo "tunnel    open${server:+ through $server}"
+    else
+        echo "tunnel    connecting"
+    fi
+    http=$(last_notice ListeningHttpProxyPort | sed -n 's/.*"port":\([0-9]*\).*/\1/p')
+    socks=$(last_notice ListeningSocksProxyPort | sed -n 's/.*"port":\([0-9]*\).*/\1/p')
+    [ -n "$http$socks" ] && echo "proxies   ${http:+HTTP 127.0.0.1:$http}${http:+${socks:+, }}${socks:+SOCKS 127.0.0.1:$socks}"
+    return 0
+}
+
+region() {
+    if [ $# -eq 0 ]; then
+        r=$(egress)
+        echo "country   ${r:-fastest (Psiphon picks)}"
+        offered=$(last_notice AvailableEgressRegions | sed -n 's/.*"regions":\[\([^]]*\)\].*/\1/p' | tr -d '"' | tr ',' ' ')
+        [ -n "$offered" ] && echo "offered   $offered"
+        echo "change    psi region XX, or psi region auto"
+        return 0
+    fi
+    want=$(printf %s "$1" | tr '[:lower:]' '[:upper:]')
+    case $want in
+    AUTO | FASTEST | "") want= ;;
+    [A-Z][A-Z]) ;;
+    *) echo "not a country code: $1 (two letters, like DE, or auto)" >&2; return 2 ;;
+    esac
+    [ -f "$conf" ] || { echo "no $conf" >&2; return 1; }
+    if [ "$(egress)" = "$want" ] && grep -q '"EgressRegion"' "$conf"; then
+        echo "country   already ${want:-fastest}"
+        return 0
+    fi
+    # the one value changes; the file keeps its layout and its permissions
+    tmp=$conf.psi.$$
+    cp -p "$conf" "$tmp" || return 1
+    if grep -q '"EgressRegion"' "$conf"; then
+        sed 's/\("EgressRegion"[[:space:]]*:[[:space:]]*\)"[^"]*"/\1"'"$want"'"/' "$conf" >"$tmp"
+    else
+        awk -v v="$want" '!done && /\{/ { sub(/\{/, "{\"EgressRegion\": \"" v "\", "); done = 1 } { print }' "$conf" >"$tmp"
+    fi
+    if [ "$(conf=$tmp egress)" != "$want" ]; then
+        rm -f "$tmp"
+        echo "could not set EgressRegion in $conf" >&2
+        return 1
+    fi
+    mv "$tmp" "$conf"
+    echo "country   ${want:-fastest (Psiphon picks)}"
+    if [ -n "$(pids | head -n 1)" ]; then
+        echo "Restarting Psiphon to take it"
+        off && on
+    fi
+}
+
 on() {
     running=$(pids | head -n 1)
     if [ -n "$running" ]; then
@@ -45,7 +122,9 @@ on() {
     [ -x "$bin" ] || { echo "no Psiphon at $bin" >&2; return 1; }
     for key in LocalHttpProxyPort LocalSocksProxyPort; do
         port=$(sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "$conf" | head -n 1)
-        [ -n "$port" ] && ss -Hltn "sport = :$port" | grep -q . || continue
+        if [ -z "$port" ] || ! ss -Hltn "sport = :$port" | grep -q .; then
+            continue
+        fi
         who=$(ss -Hltnp "sport = :$port" | sed -n 's/.*users:(("\([^"]*\)".*/\1/p' | head -n 1)
         echo "port $port is taken${who:+ by $who}" >&2
         return 1
@@ -88,6 +167,7 @@ off() {
         return 0
     fi
     t0=$(date +%s%N)
+    # shellcheck disable=SC2086 # one pid per word
     kill -TERM $list
     i=0
     while [ $i -lt $((grace * 20)) ] && [ -n "$(alive "$list")" ]; do
@@ -96,10 +176,11 @@ off() {
     done
     left=$(alive "$list")
     if [ -n "$left" ]; then
+        # shellcheck disable=SC2086 # one pid per word
         kill -KILL $left
         sleep 0.2
         if [ -n "$(alive "$left")" ]; then
-            echo "Psiphon does not stop (pid $(echo $left))" >&2
+            echo "Psiphon does not stop (pid $(printf '%s' "$left" | tr '\n' ' '))" >&2
             return 1
         fi
         echo "Psiphon did not stop in $grace s, killed"
@@ -109,14 +190,23 @@ off() {
     rm -f "$pidfile"
 }
 
+usage() {
+    echo "usage: psi-on | psi-off | psi status | psi region [XX|auto]" >&2
+}
+
 case ${0##*/} in
 psi-on) on ;;
 psi-off) off ;;
 *)
-    case ${1:-} in
+    cmd=${1:-status}
+    [ $# -gt 0 ] && shift
+    case $cmd in
     on) on ;;
     off) off ;;
-    *) echo "usage: psi-on | psi-off" >&2; exit 2 ;;
+    status) status ;;
+    region) region "$@" ;;
+    help | -h | --help) usage ;;
+    *) usage; exit 2 ;;
     esac
     ;;
 esac
