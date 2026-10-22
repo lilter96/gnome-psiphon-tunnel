@@ -47,6 +47,8 @@ async function sandbox() {
     GLib.file_set_contents(at('fakebin', 'gnome-extensions'), '#!/bin/sh\nexit 2\n');
     GLib.chmod(at('fakebin', 'gnome-extensions'), 0o755);
     const home = at('home');
+    // a home like any Ubuntu user's: a .bashrc with aliases, none of them ours
+    GLib.file_set_contents(at('home', '.bashrc'), "# ~/.bashrc\nalias ll='ls -alF'\n");
     const psidir = GLib.build_filenamev([home, 'psiphon']);
     return {
         root, at, home, psidir,

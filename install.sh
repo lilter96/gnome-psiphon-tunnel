@@ -204,9 +204,10 @@ install_commands() {
     esac
     for rc in "$HOME/.bashrc" "$HOME/.bash_aliases" "$HOME/.zshrc"; do
         [ -f "$rc" ] || continue
-        grep -nE '^[[:space:]]*alias[[:space:]]+psi(-on|-off)?=' "$rc" | while IFS=: read -r line _; do
+        # not grep | while: with pipefail, an rc with no such alias would end the install
+        while IFS=: read -r line _; do
             warn "$(tilde "$rc"):$line has an alias that hides the command: remove it"
-        done
+        done < <(grep -nE '^[[:space:]]*alias[[:space:]]+psi(-on|-off)?=' "$rc")
     done
 }
 
